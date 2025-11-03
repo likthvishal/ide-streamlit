@@ -6,8 +6,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import plot_roc_curve, plot_precision_recall_curve,plot_confusion_matrix
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, RocCurveDisplay, PrecisionRecallDisplay
 
 
 
@@ -26,7 +25,7 @@ def main():
 	st.sidebar.title("CHOOSE WISE")
 	st.sidebar.markdown("make better solutions")
 
-	@st.cache(persist=True)
+	@st.cache_data
 	def load_data():
 		data = pd.read_csv("titanic.csv")
 		cols = ['Name', 'Ticket', 'Cabin']
@@ -42,15 +41,19 @@ def main():
 		data = data.drop(['Pclass', 'Sex', 'Embarked'], axis=1)
 		data['Age'] = data['Age'].interpolate()
 
-
-
+		# Convert all column names to strings to avoid mixed type issues
+		data.columns = data.columns.astype(str)
 
 		return data
 
-	@st.cache(persist=True)
+	@st.cache_data
 	def split(df):
+		# Ensure all column names are strings
+		df.columns = df.columns.astype(str)
 		x = df.drop(columns =['Survived'])
 		y = df.Survived
+		# Ensure feature names are strings
+		x.columns = x.columns.astype(str)
 		x_train, x_test, y_train, y_test = train_test_split(x,y,test_size=0.3, random_state=0)
 		return x_train, x_test, y_train, y_test
 
@@ -58,17 +61,17 @@ def main():
 	def plot_metric(metrics_list):
 		if 'Confusion_matrix' in metrics_list:
 			st.subheader("Confusion Matrix")
-			plot_confusion_matrix(model, x_test, y_test, display_labels=class_names)
+			ConfusionMatrixDisplay.from_estimator(model, x_test, y_test, display_labels=class_names)
 			st.pyplot()
 
 		if 'ROC_curve' in metrics_list:
 			st.subheader("ROC_curve")
-			plot_roc_curve(model, x_test, y_test)
-			st.pyplot()	
+			RocCurveDisplay.from_estimator(model, x_test, y_test)
+			st.pyplot()
 
 		if 'Precession-recall' in metrics_list:
 			st.subheader("Precession-recall-Curve")
-			plot_precision_recall_curve(model, x_test, y_test)
+			PrecisionRecallDisplay.from_estimator(model, x_test, y_test)
 			st.pyplot()
 
 
@@ -109,11 +112,11 @@ def main():
 			model.fit (x_train, y_train) 
 			accuracy = model.score(x_test, y_test) 
 			y_pred = model.predict(x_test) 
-			st.write("Accuracy:",accuracy.round(2))
+			st.write("Accuracy:",round(accuracy, 2))
 			cm_dtc=confusion_matrix(y_test,y_pred)
 			st.write("Confusion_matrix:",cm_dtc)
-			st.write("precision: ",precision_score(y_test, y_pred, labels=class_names).round(2))
-			st.write("recall: ",recall_score(y_test,y_pred, labels=class_names).round(2))
+			st.write("precision: ",round(precision_score(y_test, y_pred, labels=class_names), 2))
+			st.write("recall: ",round(recall_score(y_test,y_pred, labels=class_names), 2))
 			plot_metric(metrics)
 
 
@@ -133,11 +136,11 @@ def main():
 			model.fit (x_train, y_train) 
 			accuracy = model.score(x_test, y_test) 
 			y_pred = model.predict(x_test) 
-			st.write("Accuracy:",accuracy.round(2))
+			st.write("Accuracy:",round(accuracy, 2))
 			cm_dtc=confusion_matrix(y_test,y_pred)
 			st.write("Confusion_matrix:",cm_dtc)
-			st.write("precision: ",precision_score(y_test, y_pred, labels=class_names).round(2))
-			st.write("recall: ",recall_score(y_test,y_pred, labels=class_names).round(2))
+			st.write("precision: ",round(precision_score(y_test, y_pred, labels=class_names), 2))
+			st.write("recall: ",round(recall_score(y_test,y_pred, labels=class_names), 2))
 			plot_metric(metrics)
 
 
@@ -147,7 +150,8 @@ def main():
 		n_estimators = st.sidebar.number_input("The number of trees in the forest",100,5000, step = 10, key='n_estimators')
 		max_depth = st.sidebar.number_input("The maximum depth of the tree",1,20, step = 1, key="max_depth")
 		bootstrap = st.sidebar.radio("bootstrap samples when building trees", ('True','False'), key='bootstrap')
-
+		# Convert string to boolean
+		bootstrap = True if bootstrap == 'True' else False
 
 		metrics = st.sidebar.multiselect("what metric to plot?",("Confusion_matrix","ROC_curve","Precession-recall"))
 
@@ -158,11 +162,11 @@ def main():
 			model.fit (x_train, y_train) 
 			accuracy = model.score(x_test, y_test) 
 			y_pred = model.predict(x_test) 
-			st.write("Accuracy:",accuracy.round(2))
+			st.write("Accuracy:",round(accuracy, 2))
 			cm_dtc=confusion_matrix(y_test,y_pred)
 			st.write("Confusion_matrix:",cm_dtc)
-			st.write("precision: ",precision_score(y_test, y_pred, labels=class_names).round(2))
-			st.write("recall: ",recall_score(y_test,y_pred, labels=class_names).round(2))
+			st.write("precision: ",round(precision_score(y_test, y_pred, labels=class_names), 2))
+			st.write("recall: ",round(recall_score(y_test,y_pred, labels=class_names), 2))
 			plot_metric(metrics)
 
 
@@ -171,28 +175,30 @@ def main():
 	if st.sidebar.checkbox("Compare model performance"):
 		st.sidebar.title("SVM")
 		st.sidebar.subheader("Model Hyperparameters")
-		C = st.sidebar.number_input("C (regularization)",0.01,10.0,step=0.01, key="C")
-		kernel = st.sidebar.radio("kernel",("rbf","linear"),key = 'kernel')
-		gamma  = st.sidebar.radio("gamma (kernel coefficient)",("scale","auto"), key= 'gamma')
-		model = SVC(C=C, kernel=kernel, gamma=gamma) 
-		model.fit (x_train, y_train) 
+		C = st.sidebar.number_input("C (regularization)",0.01,10.0,step=0.01, key="C_compare")
+		kernel = st.sidebar.radio("kernel",("rbf","linear"),key = 'kernel_compare')
+		gamma  = st.sidebar.radio("gamma (kernel coefficient)",("scale","auto"), key= 'gamma_compare')
+		model = SVC(C=C, kernel=kernel, gamma=gamma)
+		model.fit (x_train, y_train)
 		ac_svm = model.score(x_test, y_test)
 
 		st.sidebar.title("Logistic Regression")
 		st.sidebar.subheader("Model Hyperparameters")
-		C = st.sidebar.number_input("C (regularization parameter)",0.01,10.0, step = 0.01, key='C_LR')
-		max_iter = st.sidebar.slider("Maximum number of iterations",100,500, key='max_iter')
-		model =LogisticRegression(C=C,max_iter=max_iter) 
-		model.fit (x_train, y_train) 
+		C = st.sidebar.number_input("C (regularization parameter)",0.01,10.0, step = 0.01, key='C_LR_compare')
+		max_iter = st.sidebar.slider("Maximum number of iterations",100,500, key='max_iter_compare')
+		model =LogisticRegression(C=C,max_iter=max_iter)
+		model.fit (x_train, y_train)
 		ac_lr = model.score(x_test, y_test)
 
 
 		st.sidebar.title("Random Forest Classifier")
-		n_estimators = st.sidebar.number_input("The number of trees in the forest",100,5000, step = 10, key='n_estimators')
-		max_depth = st.sidebar.number_input("The maximum depth of the tree",1,20, step = 1, key="max_depth")
-		bootstrap = st.sidebar.radio("bootstrap samples when building trees", ('True','False'), key='bootstrap')
-		model =RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth, bootstrap=bootstrap, n_jobs=-1) 
-		model.fit (x_train, y_train) 
+		n_estimators = st.sidebar.number_input("The number of trees in the forest",100,5000, step = 10, key='n_estimators_compare')
+		max_depth = st.sidebar.number_input("The maximum depth of the tree",1,20, step = 1, key="max_depth_compare")
+		bootstrap = st.sidebar.radio("bootstrap samples when building trees", ('True','False'), key='bootstrap_compare')
+		# Convert string to boolean
+		bootstrap = True if bootstrap == 'True' else False
+		model =RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth, bootstrap=bootstrap, n_jobs=-1)
+		model.fit (x_train, y_train)
 		ac_rfc = model.score(x_test, y_test)
 
 		values_ = [ac_svm,ac_rfc,ac_lr]
